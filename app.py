@@ -11,31 +11,32 @@ from io import BytesIO
 
 def scrape_data():
     try:
-        # Initialize WebDriver
+        # Set up Chrome options for headless operation and to specify the path to Chrome binary
         options = Options()
-        options.add_argument('--headless')  # Run in headless mode if needed
+        # Path to Chrome binary in the Docker container
+        options.binary_location = "/usr/bin/google-chrome"
+        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
 
+        # Initialize WebDriver
         driver = webdriver.Chrome(service=Service(
-            ChromeDriverManager().install()), options=options)
+            "/usr/local/bin/chromedriver"), options=options)
 
+        # URL to scrape
         url = "https://cvvp.nva.gov.lv/#/pub/apmacibas/grupas"
         driver.get(url)
-        time.sleep(5)  # Allow page to load initially
+        time.sleep(5)  # Allow time for the page to load
 
-        # Infinite scroll setup
+        # Infinite scroll to load all data
         last_height = driver.execute_script(
             "return document.body.scrollHeight")
         scroll_pause_time = 2  # Adjust if needed
 
         while True:
-            # Scroll to the bottom of the page
             driver.execute_script(
                 "window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(scroll_pause_time)
-
-            # Calculate new scroll height and compare with the last scroll height
             new_height = driver.execute_script(
                 "return document.body.scrollHeight")
             if new_height == last_height:
@@ -46,23 +47,19 @@ def scrape_data():
         soup = BeautifulSoup(driver.page_source, "html.parser")
         driver.quit()  # Close the driver
 
-        # Extract the table data
+        # Extract table data
         table = soup.find("table", {"class": "table table-condensed"})
 
-        # Create lists to store the extracted data
+        # Extract headers and rows into lists
         data = []
-        headers = []
+        headers = [th.text.strip()
+                   for th in table.find("thead").find_all("th")]
 
-        # Extract headers
-        for th in table.find("thead").find_all("th"):
-            headers.append(th.text.strip())
-
-        # Extract rows
         for row in table.find("tbody").find_all("tr"):
             row_data = [td.text.strip() for td in row.find_all("td")]
             data.append(row_data)
 
-        # Create DataFrame
+        # Create a DataFrame from the data
         df = pd.DataFrame(data, columns=headers)
 
         return df
@@ -83,9 +80,11 @@ def save_file(df):
 # Streamlit UI
 st.title("Web Scraper")
 
+# Add spinner while scraping data
 if st.button("Scrape Data"):
-    with st.spinner("Scraping data, please wait..."):
+    with st.spinner("Scraping data... Please wait."):
         df = scrape_data()
+
     if df is not None:
         st.write("Data scraped successfully:")
         st.dataframe(df)
