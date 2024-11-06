@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # Install system dependencies for Chrome
 RUN apt-get update && \
     apt-get install -y wget unzip curl && \
-    apt-get install -y libnss3 libxss1 libappindicator1 libindicator7 libgbm-dev && \
+    apt-get install -y libnss3 libxss1 libappindicator1 libgbm-dev && \
     apt-get install -y fonts-liberation libappindicator3-1 xdg-utils && \
     apt-get clean
 
