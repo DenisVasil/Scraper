@@ -1,42 +1,39 @@
-# Use the official Python image
-FROM python:3.9-slim
+# Use the official Python image from Docker Hub
+FROM python:3.10-slim
 
 # Install system dependencies for Chrome
-RUN apt-get update && apt-get install -y \
-    wget \
-    unzip \
-    libnss3 \
-    libgconf-2-4 \
-    libxss1 \
-    libappindicator3-1 \
-    libasound2 \
-    fonts-liberation \
-    libatk-bridge2.0-0 \
-    libgbm1 \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y wget unzip curl && \
+    apt-get install -y libnss3 libxss1 libappindicator1 libindicator7 libgbm-dev && \
+    apt-get install -y fonts-liberation libappindicator3-1 xdg-utils && \
+    apt-get clean
 
-# Install Chrome
-RUN wget -q -O chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt install -y ./chrome.deb && \
-    rm chrome.deb
+# Install Google Chrome
+RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y && \
+    rm google-chrome-stable_current_amd64.deb
 
 # Install ChromeDriver
-RUN wget -q https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip && \
+RUN CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
+    wget -q https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip && \
     unzip chromedriver_linux64.zip && \
-    mv chromedriver /usr/local/bin/ && \
-    rm chromedriver_linux64.zip
+    rm chromedriver_linux64.zip && \
+    mv chromedriver /usr/local/bin/chromedriver
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Set display port to avoid errors with headless Chrome
+ENV DISPLAY=:99
 
-# Copy app code
-COPY . /app
+# Set the working directory
 WORKDIR /app
 
-# Expose Streamlit port
+# Copy the local project files to the Docker container
+COPY . /app
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the port for Streamlit
 EXPOSE 8501
 
-# Command to run the app
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.headless=true"]
+# Run Streamlit
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
